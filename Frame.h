@@ -17,6 +17,7 @@ private:
 #endif
 public:
   void begin();
+  void clear();
   void plot(uint8_t row, uint8_t col, bool set);
   void render();
 };

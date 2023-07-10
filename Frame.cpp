@@ -4,6 +4,10 @@ Frame_t Frame;
 
 void Frame_t::begin() {
   matrix_.begin();
+  clear();
+}
+
+void Frame_t::clear() {
   memset(frame_, 0, sizeof(frame_));
 }
 
