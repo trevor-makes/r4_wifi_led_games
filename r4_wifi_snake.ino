@@ -15,11 +15,7 @@ void loop() {
   loop_ptr();
 }
 
-uint16_t head_dir;
-uint16_t prev_dir;
-uint8_t head_row;
-uint8_t head_col;
-
+Head head;
 Tail tail;
 Apple apple;
 
@@ -33,12 +29,9 @@ void restart() {
 
   randomSeed(micros());
 
-  head_dir = PlayStation.Right;
-  prev_dir = head_dir;
-  head_row = Frame.HEIGHT / 2;
-  head_col = 1;
+  head.reset();
   tail.reset();
-  tail.grow(head_row, head_col);
+  tail.grow(head);
 
   apple.respawn(tail);
 
@@ -81,58 +74,32 @@ void death_loop() {
 void game_loop() {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
-  if ((pressed & PlayStation.Left) && prev_dir != PlayStation.Right) head_dir = PlayStation.Left;
-  if ((pressed & PlayStation.Right) && prev_dir != PlayStation.Left) head_dir = PlayStation.Right;
-  if ((pressed & PlayStation.Up) && prev_dir != PlayStation.Down) head_dir = PlayStation.Up;
-  if ((pressed & PlayStation.Down) && prev_dir != PlayStation.Up) head_dir = PlayStation.Down;
+  head.try_move(pressed & PlayStation.Left);
+  head.try_move(pressed & PlayStation.Right);
+  head.try_move(pressed & PlayStation.Up);
+  head.try_move(pressed & PlayStation.Down);
 
   // Wait for next move
   unsigned long t_now = millis();
   if ((t_now - t_prev) < move_delay) return;
   t_prev = t_now;
 
-  switch (head_dir) {
-    case PlayStation.Left:
-      if (head_col == 0) {
-        game_over();
-        return;
-      }
-      head_col -= 1;
-      break;
-    case PlayStation.Right:
-      if (head_col == Frame.WIDTH - 1) {
-        game_over();
-        return;
-      }
-      head_col += 1;
-      break;
-    case PlayStation.Up:
-      if (head_row == 0) {
-        game_over();
-        return;
-      }
-      head_row -= 1;
-      break;
-    case PlayStation.Down:
-      if (head_row == Frame.HEIGHT - 1) {
-        game_over();
-        return;
-      }
-      head_row += 1;
-      break;
-  }
-  prev_dir = head_dir;
-
-  // Game over if head eats tail
-  if (tail.is_tail(head_row, head_col)) {
+  // Move forward; game over if head hits wall
+  if (!head.update()) {
     game_over();
     return;
   }
 
-  tail.grow(head_row, head_col);
+  // Game over if head eats tail
+  if (tail.overlaps(head)) {
+    game_over();
+    return;
+  }
+
+  tail.grow(head);
 
   // If an apple was eaten...
-  if (apple.is_apple(head_row, head_col)) {
+  if (apple.overlaps(head)) {
     tail.feed();
     if (move_delay > MIN_DELAY) {
       // roughly multiply by ~0.96
