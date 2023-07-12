@@ -1,3 +1,4 @@
+#include "Snake.h"
 #include "Frame.h"
 #include "PlayStation.h"
 
@@ -19,15 +20,8 @@ uint16_t prev_dir;
 uint8_t head_row;
 uint8_t head_col;
 
-#define TAIL_MAX_LEN 32
-uint8_t tail_rows[TAIL_MAX_LEN];
-uint8_t tail_cols[TAIL_MAX_LEN];
-uint8_t tail_index;
-uint8_t tail_length;
-uint8_t target_length;
-
-uint8_t apple_row;
-uint8_t apple_col;
+Tail tail;
+Apple apple;
 
 #define MIN_DELAY 60
 uint8_t move_delay; // millis per move
@@ -43,12 +37,10 @@ void restart() {
   prev_dir = head_dir;
   head_row = Frame.HEIGHT / 2;
   head_col = 1;
-  tail_index = 0;
-  tail_length = 0;
-  target_length = 6;
-  grow_tail(head_row, head_col);
+  tail.reset();
+  tail.grow(head_row, head_col);
 
-  new_apple();
+  apple.respawn(tail);
 
   move_delay = 150;
   t_prev = millis();
@@ -78,8 +70,8 @@ void death_loop() {
   if ((t_now - t_prev) < move_delay) return;
   t_prev = t_now;
 
-  if (tail_length > 0) {
-    shrink_tail();
+  if (tail.length() > 0) {
+    tail.shrink();
     Frame.render();
   } else {
     show_menu();
@@ -132,76 +124,25 @@ void game_loop() {
   prev_dir = head_dir;
 
   // Game over if head eats tail
-  if (is_tail(head_row, head_col)) {
+  if (tail.is_tail(head_row, head_col)) {
     game_over();
     return;
   }
 
-  grow_tail(head_row, head_col);
+  tail.grow(head_row, head_col);
 
   // If an apple was eaten...
-  if (head_row == apple_row && head_col == apple_col) {
-    if (target_length < TAIL_MAX_LEN) {
-      ++target_length;
-    }
+  if (apple.is_apple(head_row, head_col)) {
+    tail.feed();
     if (move_delay > MIN_DELAY) {
       // roughly multiply by ~0.96
       move_delay = (move_delay >> 6) + (move_delay >> 5) + (move_delay >> 4)
         + (move_delay >> 3) + (move_delay >> 2) + (move_delay >> 1);
     }
-    new_apple();
+    apple.respawn(tail);
   }
 
-  if (tail_length == target_length) shrink_tail();
+  tail.try_shrink();
 
   Frame.render();
-}
-
-void shrink_tail() {
-  // Erase tail graphic
-  Frame.plot(tail_rows[tail_index], tail_cols[tail_index], false);
-
-  // Pop tail from ring buffer
-  ++tail_index;
-  if (tail_index == TAIL_MAX_LEN)
-    tail_index = 0;
-  --tail_length;
-}
-
-void grow_tail(uint8_t row, uint8_t col) {
-  // Push head into ring buffer
-  uint8_t head_index = tail_index + tail_length;
-  if (head_index >= TAIL_MAX_LEN)
-    head_index -= TAIL_MAX_LEN;
-  tail_rows[head_index] = row;
-  tail_cols[head_index] = col;
-  ++tail_length;
-
-  // Draw head graphic
-  Frame.plot(row, col, true);
-}
-
-bool is_tail(uint8_t row, uint8_t col) {
-  for (uint8_t i = 0; i < tail_length; ++i) {
-    uint8_t index = tail_index + i;
-    // Wrap index into circular buffer
-    if (index >= TAIL_MAX_LEN) {
-      index -= TAIL_MAX_LEN;
-    }
-    if (tail_rows[index] == row && tail_cols[index] == col) {
-      return true;
-    }
-  }
-  return false;
-}
-
-void new_apple() {
-  // Get random position not on tail
-  do {
-    apple_row = random(Frame.HEIGHT);
-    apple_col = random(Frame.WIDTH);
-  } while (is_tail(apple_row, apple_col));
-
-  // Draw apple at new position
-  Frame.plot(apple_row, apple_col, true);
 }
