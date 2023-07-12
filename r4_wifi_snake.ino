@@ -1,13 +1,17 @@
 #include "Frame.h"
 #include "PlayStation.h"
 
+void (*loop_ptr)();
+
 void setup() {
   PlayStation.begin();
   Frame.begin();
 
-  // TODO this sucks, figure out a decent way to seed random
-  //randomSeed(analogRead(A0));
-  restart();
+  show_menu();
+}
+
+void loop() {
+  loop_ptr();
 }
 
 uint16_t head_dir;
@@ -15,12 +19,12 @@ uint16_t prev_dir;
 uint8_t head_row;
 uint8_t head_col;
 
-#define TAIL_MAX_LEN 80
+#define TAIL_MAX_LEN 32
 uint8_t tail_rows[TAIL_MAX_LEN];
 uint8_t tail_cols[TAIL_MAX_LEN];
-uint8_t tail_index = 0;
-uint8_t tail_length = 0;
-uint8_t target_length = 6;
+uint8_t tail_index;
+uint8_t tail_length;
+uint8_t target_length;
 
 uint8_t apple_row;
 uint8_t apple_col;
@@ -33,24 +37,56 @@ unsigned long t_prev;
 void restart() {
   Frame.clear();
 
+  randomSeed(micros());
+
   head_dir = PlayStation.Right;
   prev_dir = head_dir;
   head_row = Frame.HEIGHT / 2;
   head_col = 1;
+  tail_index = 0;
+  tail_length = 0;
+  target_length = 6;
   grow_tail(head_row, head_col);
 
   new_apple();
 
   move_delay = 150;
   t_prev = millis();
+
+  loop_ptr = game_loop;
 }
 
 void game_over() {
-  // TODO show score and option for restart
-  for (;;) {}
+  move_delay = MIN_DELAY;
+  loop_ptr = death_loop;
 }
 
-void loop() {
+void show_menu() {
+  Frame.clear();
+  Frame.render();
+  loop_ptr = menu_loop;
+}
+
+void menu_loop() {
+  PlayStation.update();
+  uint16_t pressed = PlayStation.get_pressed();
+  if (pressed & PlayStation.Start) restart();
+}
+
+void death_loop() {
+  unsigned long t_now = millis();
+  if ((t_now - t_prev) < move_delay) return;
+  t_prev = t_now;
+
+  if (tail_length > 0) {
+    shrink_tail();
+    Frame.render();
+  } else {
+    show_menu();
+  }
+}
+
+void game_loop() {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
   if ((pressed & PlayStation.Left) && prev_dir != PlayStation.Right) head_dir = PlayStation.Left;
@@ -65,26 +101,41 @@ void loop() {
 
   switch (head_dir) {
     case PlayStation.Left:
-      if (head_col == 0) game_over();
+      if (head_col == 0) {
+        game_over();
+        return;
+      }
       head_col -= 1;
       break;
     case PlayStation.Right:
-      if (head_col == Frame.WIDTH - 1) game_over();
+      if (head_col == Frame.WIDTH - 1) {
+        game_over();
+        return;
+      }
       head_col += 1;
       break;
     case PlayStation.Up:
-      if (head_row == 0) game_over();
+      if (head_row == 0) {
+        game_over();
+        return;
+      }
       head_row -= 1;
       break;
     case PlayStation.Down:
-      if (head_row == Frame.HEIGHT - 1) game_over();
+      if (head_row == Frame.HEIGHT - 1) {
+        game_over();
+        return;
+      }
       head_row += 1;
       break;
   }
   prev_dir = head_dir;
 
   // Game over if head eats tail
-  if (is_tail(head_row, head_col)) game_over();
+  if (is_tail(head_row, head_col)) {
+    game_over();
+    return;
+  }
 
   grow_tail(head_row, head_col);
 
