@@ -7,8 +7,8 @@ void Frame_t::begin() {
   clear();
 }
 
-void Frame_t::clear() {
-  memset(frame_, 0, sizeof(frame_));
+void Frame_t::clear(bool set) {
+  memset(frame_, set ? 0xFF : 0, sizeof(frame_));
 }
 
 void Frame_t::plot(uint8_t row, uint8_t col, bool set) {

@@ -27,6 +27,14 @@ uint8_t frame_period; // millis per move
 
 unsigned long t_prev;
 
+void shrink_frame_period() {
+  if (frame_period > PERIOD_LIMIT) {
+    // roughly multiply by ~0.96
+    frame_period = (frame_period >> 6) + (frame_period >> 5) + (frame_period >> 4)
+      + (frame_period >> 3) + (frame_period >> 2) + (frame_period >> 1);
+  }
+}
+
 void restart() {
   Frame.clear();
 
@@ -46,7 +54,8 @@ void restart() {
 }
 
 void game_over() {
-  frame_period = PERIOD_LIMIT;
+  Frame.clear(true); // invert screen
+  frame_period = PERIOD_START;
   loop_ptr = death_loop;
 }
 
@@ -75,6 +84,8 @@ void death_loop() {
   unsigned long t_now = millis();
   if ((t_now - t_prev) < frame_period) return;
   t_prev = t_now;
+
+  shrink_frame_period();
 
   if (tail.length() > 0) {
     tail.shrink();
@@ -115,11 +126,7 @@ void game_loop() {
   if (apple.overlaps(head)) {
     ++score;
     tail.feed();
-    if (frame_period > PERIOD_LIMIT) {
-      // roughly multiply by ~0.96
-      frame_period = (frame_period >> 6) + (frame_period >> 5) + (frame_period >> 4)
-        + (frame_period >> 3) + (frame_period >> 2) + (frame_period >> 1);
-    }
+    shrink_frame_period();
     apple.respawn(tail);
   }
 
