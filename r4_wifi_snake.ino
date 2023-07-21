@@ -19,6 +19,8 @@ Head head;
 Tail tail;
 Apple apple;
 
+uint16_t score = 0;
+
 constexpr uint8_t PERIOD_LIMIT = 60; // shortest frame period
 constexpr uint8_t PERIOD_START = 150; // starting frame period
 uint8_t frame_period; // millis per move
@@ -36,6 +38,7 @@ void restart() {
 
   apple.respawn(tail);
 
+  score = 0;
   frame_period = PERIOD_START;
   t_prev = millis();
 
@@ -49,6 +52,9 @@ void game_over() {
 
 void show_menu() {
   Frame.clear();
+  Frame.plot_digit(0, 0, (score / 100) % 10, true);
+  Frame.plot_digit(0, 4, (score / 10) % 10, true);
+  Frame.plot_digit(0, 8, (score / 1) % 10, true);
   Frame.render();
   loop_ptr = menu_loop;
 }
@@ -56,7 +62,13 @@ void show_menu() {
 void menu_loop() {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
-  if (pressed & PlayStation.Start) restart();
+  if (pressed & PlayStation.Start) { restart(); return; }
+
+  //unsigned long t_now = millis();
+  //if ((t_now - t_prev) < ...) return;
+  //t_prev = t_now;
+
+  // animate frame here
 }
 
 void death_loop() {
@@ -101,6 +113,7 @@ void game_loop() {
 
   // If an apple was eaten...
   if (apple.overlaps(head)) {
+    ++score;
     tail.feed();
     if (frame_period > PERIOD_LIMIT) {
       // roughly multiply by ~0.96
