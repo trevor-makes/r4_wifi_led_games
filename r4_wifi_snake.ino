@@ -19,8 +19,9 @@ Head head;
 Tail tail;
 Apple apple;
 
-#define MIN_DELAY 60
-uint8_t move_delay; // millis per move
+constexpr uint8_t PERIOD_LIMIT = 60; // shortest frame period
+constexpr uint8_t PERIOD_START = 150; // starting frame period
+uint8_t frame_period; // millis per move
 
 unsigned long t_prev;
 
@@ -35,14 +36,14 @@ void restart() {
 
   apple.respawn(tail);
 
-  move_delay = 150;
+  frame_period = PERIOD_START;
   t_prev = millis();
 
   loop_ptr = game_loop;
 }
 
 void game_over() {
-  move_delay = MIN_DELAY;
+  frame_period = PERIOD_LIMIT;
   loop_ptr = death_loop;
 }
 
@@ -60,7 +61,7 @@ void menu_loop() {
 
 void death_loop() {
   unsigned long t_now = millis();
-  if ((t_now - t_prev) < move_delay) return;
+  if ((t_now - t_prev) < frame_period) return;
   t_prev = t_now;
 
   if (tail.length() > 0) {
@@ -81,7 +82,7 @@ void game_loop() {
 
   // Wait for next move
   unsigned long t_now = millis();
-  if ((t_now - t_prev) < move_delay) return;
+  if ((t_now - t_prev) < frame_period) return;
   t_prev = t_now;
 
   // Move forward; game over if head hits wall
@@ -101,10 +102,10 @@ void game_loop() {
   // If an apple was eaten...
   if (apple.overlaps(head)) {
     tail.feed();
-    if (move_delay > MIN_DELAY) {
+    if (frame_period > PERIOD_LIMIT) {
       // roughly multiply by ~0.96
-      move_delay = (move_delay >> 6) + (move_delay >> 5) + (move_delay >> 4)
-        + (move_delay >> 3) + (move_delay >> 2) + (move_delay >> 1);
+      frame_period = (frame_period >> 6) + (frame_period >> 5) + (frame_period >> 4)
+        + (frame_period >> 3) + (frame_period >> 2) + (frame_period >> 1);
     }
     apple.respawn(tail);
   }
