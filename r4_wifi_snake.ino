@@ -1,18 +1,22 @@
 #include "Snake.h"
+#include "Tetro.h"
 #include "Frame.h"
 #include "PlayStation.h"
 
-void (*loop_ptr)();
+void (*loop_ptr)(Timer& timer);
+Timer g_timer;
 
 void setup() {
   PlayStation.begin();
   Frame.begin();
 
-  show_menu();
+  //show_menu();
+  g_timer.set_period(500);
+  loop_ptr = tetro_loop;
 }
 
 void loop() {
-  loop_ptr();
+  loop_ptr(g_timer);
 }
 
 Head head;
@@ -23,15 +27,14 @@ uint16_t score = 0;
 
 constexpr uint8_t PERIOD_LIMIT = 60; // shortest frame period
 constexpr uint8_t PERIOD_START = 150; // starting frame period
-uint8_t frame_period; // millis per move
-
-unsigned long t_prev;
 
 void shrink_frame_period() {
+  unsigned long frame_period = g_timer.get_period();
   if (frame_period > PERIOD_LIMIT) {
     // roughly multiply by ~0.96
     frame_period = (frame_period >> 6) + (frame_period >> 5) + (frame_period >> 4)
       + (frame_period >> 3) + (frame_period >> 2) + (frame_period >> 1);
+    g_timer.set_period(frame_period);
   }
 }
 
@@ -47,15 +50,15 @@ void restart() {
   apple.respawn(tail);
 
   score = 0;
-  frame_period = PERIOD_START;
-  t_prev = millis();
+  g_timer.set_period(PERIOD_START);
+  g_timer.reset();
 
   loop_ptr = game_loop;
 }
 
 void game_over() {
   Frame.clear(true); // invert screen
-  frame_period = PERIOD_START;
+  g_timer.set_period(PERIOD_START);
   loop_ptr = death_loop;
 }
 
@@ -68,22 +71,18 @@ void show_menu() {
   loop_ptr = menu_loop;
 }
 
-void menu_loop() {
+void menu_loop(Timer& timer) {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
   if (pressed & PlayStation.Start) { restart(); return; }
 
-  //unsigned long t_now = millis();
-  //if ((t_now - t_prev) < ...) return;
-  //t_prev = t_now;
+  //if (g_timer.did_tick() == false) return;
 
   // animate frame here
 }
 
-void death_loop() {
-  unsigned long t_now = millis();
-  if ((t_now - t_prev) < frame_period) return;
-  t_prev = t_now;
+void death_loop(Timer& timer) {
+  if (g_timer.did_tick() == false) return;
 
   shrink_frame_period();
 
@@ -95,7 +94,7 @@ void death_loop() {
   }
 }
 
-void game_loop() {
+void game_loop(Timer& timer) {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
   head.try_move(pressed & PlayStation.Left);
@@ -104,9 +103,7 @@ void game_loop() {
   head.try_move(pressed & PlayStation.Down);
 
   // Wait for next move
-  unsigned long t_now = millis();
-  if ((t_now - t_prev) < frame_period) return;
-  t_prev = t_now;
+  if (g_timer.did_tick() == false) return;
 
   // Move forward; game over if head hits wall
   if (!head.update()) {
