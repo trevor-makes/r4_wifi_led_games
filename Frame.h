@@ -17,7 +17,8 @@ private:
 #endif
 public:
   void begin();
-  void clear(bool set = false);
+  void fill(bool set);
+  void clear() { fill(false); }
   void plot(uint8_t row, uint8_t col, bool set);
   void plot_digit(uint8_t row, uint8_t col, uint8_t digit, bool set);
   void render();

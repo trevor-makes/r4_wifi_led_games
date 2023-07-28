@@ -4,11 +4,16 @@ Frame_t Frame;
 
 void Frame_t::begin() {
   matrix_.begin();
-  clear();
+  fill(false);
 }
 
-void Frame_t::clear(bool set) {
-  memset(frame_, set ? 0xFF : 0, sizeof(frame_));
+void Frame_t::fill(bool set) {
+#ifdef FRAME_PACKED
+  const int pattern =  set ? 0xFF : 0;
+#else
+  const int pattern =  set ? 1 : 0;
+#endif
+  memset(frame_, pattern, sizeof(frame_));
 }
 
 void Frame_t::plot(uint8_t row, uint8_t col, bool set) {

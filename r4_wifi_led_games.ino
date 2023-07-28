@@ -57,7 +57,7 @@ void restart() {
 }
 
 void game_over() {
-  Frame.clear(true); // invert screen
+  Frame.fill(true); // invert screen
   g_timer.set_period(PERIOD_START);
   loop_ptr = death_loop;
 }
