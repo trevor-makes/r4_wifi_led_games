@@ -168,77 +168,169 @@ Shape shape_L = {
 
 Shape* shapes[7] = {&shape_I, &shape_Z, &shape_S, &shape_O, &shape_T, &shape_J, &shape_L};
 
-constexpr uint8_t NUM_ROWS = Frame.WIDTH;
-constexpr uint8_t NUM_COLS = Frame.HEIGHT;
-uint8_t row_mask[NUM_ROWS];
-static_assert(sizeof(row_mask[0]) * 8 >= NUM_COLS, "bitfield size must exceed num columns");
+class TetroField {
+public:
+  static constexpr uint8_t NUM_ROWS = Frame.WIDTH;
+  static constexpr uint8_t NUM_COLS = Frame.HEIGHT;
+private:
+  uint8_t row_mask_[NUM_ROWS];
+  static_assert(sizeof(row_mask_[0]) * 8 >= NUM_COLS, "bitfield size must exceed num columns");
 
-void draw_pixel(int8_t row, int8_t col, bool set) {
-  if (row < 0 || row >= NUM_ROWS || col < 0 || col >= NUM_COLS) return;
-  Frame.plot(NUM_COLS - 1 - col, row, set); // flip row and col to rotate
-}
+public:
+  bool is_above(int8_t row) const { return row < 0; }
+  bool is_below(int8_t row) const { return row >= NUM_ROWS; }
+  bool is_above_or_below(int8_t row) const { return is_above(row) || is_below(row); }
 
-void draw_tetro_row(int8_t row, int8_t col, uint8_t tetro_row, bool set) {
-  while (tetro_row > 0) {
-    if ((tetro_row & 1) == 1) {
-      draw_pixel(row, col, set);
-    }
-    ++col;
-    tetro_row >>= 1;
+  void clear() {
+    memset(row_mask_, 0, sizeof(row_mask_));
   }
-}
 
-void draw_tetro(int8_t row, int8_t col, uint16_t tetro, bool set) {
-  draw_tetro_row(row, col, tetro >> 12 & 0x0F, set);
-  draw_tetro_row(row + 1, col, tetro >> 8 & 0x0F, set);
-  draw_tetro_row(row + 2, col, tetro >> 4 & 0x0F, set);
-  draw_tetro_row(row + 3, col, tetro & 0x0F, set);
-}
+  void plot(int8_t row, int8_t col, bool set) {
+    if (row < 0 || row >= NUM_ROWS || col < 0 || col >= NUM_COLS) return;
+    Frame.plot(NUM_COLS - 1 - col, row, set); // apply rotation transform
+  }
 
-bool test_tetro_row(int8_t row, int8_t col, uint8_t tetro_row) {
-  if (tetro_row == 0) return false; // skip rows without pixels
-  if (row < 0) return false; // ignore shapes falling from offscreen above
-  if (row >= NUM_ROWS) return true; // block offscreen pixels below
-  if (col < 0 && (tetro_row & ((1 << -col) - 1)) != 0) return true; // test left boundary
-  if (tetro_row >> (NUM_COLS - col) != 0) return true; // test right boundary
-  uint8_t tetro_mask = (col >= 0) ? (tetro_row << col) : (tetro_row >> -col);
-  return (row_mask[row] & tetro_mask) != 0;
-}
+  bool is_left_of(int8_t col, uint8_t mask) {
+    return col < 0 && (mask & ((1 << -col) - 1)) != 0;
+  }
 
-bool test_tetro(int8_t row, int8_t col, uint16_t tetro) {
-  if (test_tetro_row(row + 0, col, (tetro >> 12) & 0x0F)) return true;
-  if (test_tetro_row(row + 1, col, (tetro >> 8) & 0x0F)) return true;
-  if (test_tetro_row(row + 2, col, (tetro >> 4) & 0x0F)) return true;
-  return test_tetro_row(row + 3, col, (tetro >> 0) & 0x0F);
-}
+  bool is_right_of(int8_t col, uint8_t mask) {
+    return mask >> (NUM_COLS - col) != 0;
+  }
 
-bool place_tetro_row(int8_t row, int8_t col, uint8_t tetro_row) {
-  if (tetro_row == 0) return true;
-  if (row < 0 || row >= NUM_ROWS) return false; // can't place offscreen
-  if (col < 0 && (tetro_row & ((1 << -col) - 1)) != 0) return false; // test left boundary
-  if (tetro_row >> (NUM_COLS - col) != 0) return false; // test right boundary
-  uint8_t tetro_mask = (col >= 0) ? (tetro_row << col) : (tetro_row >> -col);
-  if ((row_mask[row] & tetro_mask) == 0) {
-    row_mask[row] |= tetro_mask;
+  bool is_overlapping(int8_t row, uint8_t mask) const {
+    if (is_above_or_below(row)) return false;
+    return (row_mask_[row] & mask) != 0;
+  }
+
+  bool is_filled(int8_t row) const {
+    if (is_above_or_below(row)) return false;
+    return row_mask_[row] == uint8_t(~0);
+  }
+
+  bool try_place(int8_t row, uint8_t mask) {
+    if (is_above_or_below(row)) return false;
+    if (is_overlapping(row, mask)) return false;
+    row_mask_[row] |= mask;
     return true;
-  } else {
+  }
+
+  void drop_row(int8_t row) {
+    for (int8_t i = row; i >= 0; --i) {
+      uint8_t shifted_mask = (i > 0) ? row_mask_[i - 1] : 0;
+      row_mask_[i] = shifted_mask;
+      for (int8_t col = 0; col < NUM_COLS; ++col) {
+        plot(i, col, shifted_mask & 1);
+        shifted_mask >>= 1;
+      }
+    }
+  }
+
+  uint8_t try_drop() {
+    uint8_t rows_cleared = 0;
+    for (int8_t row = 0; row < NUM_ROWS; ++row) {
+      if (is_filled(row)) {
+        ++rows_cleared;
+        drop_row(row);
+      }
+    }
+    return rows_cleared;
+  }
+};
+
+TetroField g_field;
+
+class Tetro {
+  Shape* shape_;
+  int8_t row_;
+  int8_t col_;
+  uint8_t rot_;
+
+public:
+  void set_shape(Shape* shape) { shape_ = shape; }
+  void set_row(int8_t row) { row_ = row; }
+  void set_col(int8_t col) { col_ = col; }
+  void set_rot(uint8_t rot) { rot_ = rot; }
+
+private:
+  void draw_row(int8_t row, int8_t col, uint8_t tetro_row, bool set) {
+    while (tetro_row > 0) {
+      if ((tetro_row & 1) == 1) {
+        g_field.plot(row, col, set);
+      }
+      ++col;
+      tetro_row >>= 1;
+    }
+  }
+
+public:
+  void draw(bool set) {
+    uint16_t tetro = shape_->data[rot_];
+    draw_row(row_ + 0, col_, (tetro >> 12) & 0x0F, set);
+    draw_row(row_ + 1, col_, (tetro >> 8) & 0x0F, set);
+    draw_row(row_ + 2, col_, (tetro >> 4) & 0x0F, set);
+    draw_row(row_ + 3, col_, (tetro >> 0) & 0x0F, set);
+  }
+
+private:
+  bool is_valid_move_row(int8_t row, int8_t col, uint8_t tetro_row) const {
+    if (tetro_row == 0) return true; // skip rows without pixels
+    if (g_field.is_below(row)) return false; // block offscreen pixels below
+    if (g_field.is_left_of(col, tetro_row)) return false; // test left boundary
+    if (g_field.is_right_of(col, tetro_row)) return false; // test right boundary
+    if (g_field.is_above(row)) return true; // allow shapes falling from offscreen above
+    uint8_t tetro_mask = (col >= 0) ? (tetro_row << col) : (tetro_row >> -col);
+    return !g_field.is_overlapping(row, tetro_mask);
+  }
+
+  bool is_valid_move(int8_t row, int8_t col, uint8_t rot) const {
+    uint16_t tetro = shape_->data[rot];
+    if (!is_valid_move_row(row + 0, col, (tetro >> 12) & 0x0F)) return false;
+    if (!is_valid_move_row(row + 1, col, (tetro >> 8) & 0x0F)) return false;
+    if (!is_valid_move_row(row + 2, col, (tetro >> 4) & 0x0F)) return false;
+    return is_valid_move_row(row + 3, col, (tetro >> 0) & 0x0F);
+  }
+
+  bool try_place_row(int8_t row, int8_t col, uint8_t tetro_row) {
+    if (tetro_row == 0) return true;
+    if (g_field.is_above_or_below(row)) return false; // can't place offscreen
+    if (g_field.is_left_of(col, tetro_row)) return false; // test left boundary
+    if (g_field.is_right_of(col, tetro_row)) return false; // test right boundary
+    uint8_t tetro_mask = (col >= 0) ? (tetro_row << col) : (tetro_row >> -col);
+    return g_field.try_place(row, tetro_mask);
+  }
+
+public:
+  bool try_place() {
+    uint16_t tetro = shape_->data[rot_];
+    if (!try_place_row(row_ + 0, col_, (tetro >> 12) & 0x0F)) return false;
+    if (!try_place_row(row_ + 1, col_, (tetro >> 8) & 0x0F)) return false;
+    if (!try_place_row(row_ + 2, col_, (tetro >> 4) & 0x0F)) return false;
+    return try_place_row(row_ + 3, col_, (tetro >> 0) & 0x0F);
+  }
+
+  bool try_move(int8_t drow, int8_t dcol) {
+    int8_t next_row = row_ + drow;
+    int8_t next_col = col_ + dcol;
+    if (is_valid_move(next_row, next_col, rot_)) {
+      row_ = next_row;
+      col_ = next_col;
+      return true;
+    }
     return false;
   }
-}
 
-bool place_tetro(int8_t row, int8_t col, uint16_t tetro) {
-  if (!place_tetro_row(row + 0, col, (tetro >> 12) & 0x0F)) return false;
-  if (!place_tetro_row(row + 1, col, (tetro >> 8) & 0x0F)) return false;
-  if (!place_tetro_row(row + 2, col, (tetro >> 4) & 0x0F)) return false;
-  return place_tetro_row(row + 3, col, (tetro >> 0) & 0x0F);
-}
+  bool try_rotate(int8_t drot) {
+    uint8_t next_rot = (shape_->count + rot_ + drot) % shape_->count;
+    if (is_valid_move(row_, col_, next_rot)) {
+      rot_ = next_rot;
+      return true;
+    }
+    return false;
+  }
+};
 
-// TODO rename/put these in object/namespace; collision with row/col parameters above
-Shape* shape_ptr;
-int8_t row;
-int8_t col;
-uint8_t rot;
-uint16_t cur_tetro;
+Tetro tetro;
 static uint16_t score;
 
 void next_shape() {
@@ -246,32 +338,10 @@ void next_shape() {
   static uint8_t num = 0;
   if (num >= 7) num = 0;
 
-  shape_ptr = shapes[num++];
-  row = -2;
-  col = (NUM_COLS - 3) / 2;
-  rot = 0;
-  cur_tetro = shape_ptr->data[rot];
-}
-
-uint8_t clear_rows(int8_t row) {
-  uint8_t rows_cleared = 0;
-  int8_t end = min(row + 4, NUM_ROWS); // TODO magic number (shape height 4)
-  row = max(row, 0);
-  for (; row < end; ++row) {
-    if (row_mask[row] == uint8_t(~0)) {
-      ++rows_cleared;
-      // Shift mask downwards
-      for (int8_t i = row; i >= 0; --i) {
-        uint8_t shifted_mask = (i > 0) ? row_mask[i - 1] : 0;
-        row_mask[i] = shifted_mask;
-        for (int8_t col = 0; col < NUM_COLS; ++col) {
-          draw_pixel(i, col, shifted_mask & 1);
-          shifted_mask >>= 1;
-        }
-      }
-    }
-  }
-  return rows_cleared;
+  tetro.set_shape(shapes[num++]);
+  tetro.set_row(-2);
+  tetro.set_col((g_field.NUM_COLS - 3) / 2);
+  tetro.set_rot(0);
 }
 
 void tetro_loop(Timer& timer) {
@@ -282,7 +352,8 @@ void tetro_loop(Timer& timer) {
   static bool first_call = true;
   if (first_call) {
     Frame.clear();
-    memset(row_mask, 0, sizeof(row_mask));
+    g_field.clear();
+    timer.set_period(1000);
     score = 0;
     is_game_over = false;
     next_shape();
@@ -304,27 +375,17 @@ void tetro_loop(Timer& timer) {
   }
 
   // Clear shape before moving with controller
-  draw_tetro(row, col, cur_tetro, false);
+  tetro.draw(false);
 
   PlayStation.update();
 
-  // Move shape left/right
+  // Move/rotate shape
   uint16_t pressed = PlayStation.get_pressed();
   if ((pressed & (PlayStation.Left | PlayStation.Right)) != 0) {
-    int8_t next_col = (pressed & PlayStation.Left) ? (col - 1) : (col + 1);
-    if (test_tetro(row, next_col, cur_tetro) == false) {
-      col = next_col;
-    }
+    tetro.try_move(0, (pressed & PlayStation.Left) ? -1 : 1);
   }
-
-  // Rotate shape
   if ((pressed & (PlayStation.L1 | PlayStation.R1)) != 0) {
-    uint8_t next_rot = ((pressed & PlayStation.L1) ? (shape_ptr->count + rot - 1) : (rot + 1)) % shape_ptr->count;
-    uint16_t next_tetro = shape_ptr->data[next_rot];
-    if (test_tetro(row, col, next_tetro) == false) {
-      rot = next_rot;
-      cur_tetro = next_tetro;
-    }
+    tetro.try_rotate((pressed & PlayStation.L1) ? -1 : 1);
   }
 
   const bool drop_now = (pressed & PlayStation.Cross);
@@ -332,18 +393,15 @@ void tetro_loop(Timer& timer) {
   // Wait for next timer tick
   if (drop_now || timer.did_tick()) {
     // Try to move down...
-    int8_t next_row = row + 1;
-    if (test_tetro(next_row, col, cur_tetro) == false) {
-      row = next_row;
-    } else {
-      // ... blocked below, so place shape here
-      draw_tetro(row, col, cur_tetro, true);
-      if (place_tetro(row, col, cur_tetro) == false) {
+    if (tetro.try_move(1, 0) == false) {
+      // ...but blocked below, so try to place shape here
+      tetro.draw(true);
+      if (tetro.try_place() == false) {
         // TODO add game over state transition
         is_game_over = true;
       }
       // Did placing the shape clear any rows?
-      const uint8_t cleared = clear_rows(row);
+      const uint8_t cleared = g_field.try_drop();
       if (cleared > 0) {
         score += cleared * 2 - 1;
         // TODO Uno R4 can just use float
@@ -357,7 +415,7 @@ void tetro_loop(Timer& timer) {
   }
 
   // Redraw shape after moving
-  draw_tetro(row, col, cur_tetro, true);
+  tetro.draw(true);
 
   Frame.render();
 }
