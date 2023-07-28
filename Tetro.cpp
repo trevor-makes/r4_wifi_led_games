@@ -1,9 +1,8 @@
 #include "Tetro.h"
-
-#include <stdint.h>
-
 #include "PlayStation.h"
 #include "Frame.h"
+
+#include <stdint.h>
 
 struct Shape {
   uint8_t count;
@@ -238,7 +237,7 @@ public:
   }
 };
 
-TetroField g_field;
+TetroField field;
 
 class Tetro {
   Shape* shape_;
@@ -256,7 +255,7 @@ private:
   void draw_row(int8_t row, int8_t col, uint8_t tetro_row, bool set) {
     while (tetro_row > 0) {
       if ((tetro_row & 1) == 1) {
-        g_field.plot(row, col, set);
+        field.plot(row, col, set);
       }
       ++col;
       tetro_row >>= 1;
@@ -275,12 +274,12 @@ public:
 private:
   bool is_valid_move_row(int8_t row, int8_t col, uint8_t tetro_row) const {
     if (tetro_row == 0) return true; // skip rows without pixels
-    if (g_field.is_below(row)) return false; // block offscreen pixels below
-    if (g_field.is_left_of(col, tetro_row)) return false; // test left boundary
-    if (g_field.is_right_of(col, tetro_row)) return false; // test right boundary
-    if (g_field.is_above(row)) return true; // allow shapes falling from offscreen above
+    if (field.is_below(row)) return false; // block offscreen pixels below
+    if (field.is_left_of(col, tetro_row)) return false; // test left boundary
+    if (field.is_right_of(col, tetro_row)) return false; // test right boundary
+    if (field.is_above(row)) return true; // allow shapes falling from offscreen above
     uint8_t tetro_mask = (col >= 0) ? (tetro_row << col) : (tetro_row >> -col);
-    return !g_field.is_overlapping(row, tetro_mask);
+    return !field.is_overlapping(row, tetro_mask);
   }
 
   bool is_valid_move(int8_t row, int8_t col, uint8_t rot) const {
@@ -293,11 +292,11 @@ private:
 
   bool try_place_row(int8_t row, int8_t col, uint8_t tetro_row) {
     if (tetro_row == 0) return true;
-    if (g_field.is_above_or_below(row)) return false; // can't place offscreen
-    if (g_field.is_left_of(col, tetro_row)) return false; // test left boundary
-    if (g_field.is_right_of(col, tetro_row)) return false; // test right boundary
+    if (field.is_above_or_below(row)) return false; // can't place offscreen
+    if (field.is_left_of(col, tetro_row)) return false; // test left boundary
+    if (field.is_right_of(col, tetro_row)) return false; // test right boundary
     uint8_t tetro_mask = (col >= 0) ? (tetro_row << col) : (tetro_row >> -col);
-    return g_field.try_place(row, tetro_mask);
+    return field.try_place(row, tetro_mask);
   }
 
 public:
@@ -344,40 +343,27 @@ void next_shape() {
 
   tetro.set_shape(shapes[num++]);
   tetro.set_row(-2);
-  tetro.set_col((g_field.NUM_COLS - 3) / 2);
+  tetro.set_col((field.NUM_COLS - 3) / 2);
   tetro.set_rot(0);
 }
 
-void tetro_loop(StateMachine&, Timer& timer) {
-  // TODO add game over state
-  static bool is_game_over = false;
-
-  // TODO add an init call/state to do the following
-  static bool first_call = true;
-  if (first_call) {
-    Frame.clear();
-    g_field.clear();
-    period = INIT_PERIOD;
-    score = 0;
-    is_game_over = false;
-    next_shape();
-    first_call = false;
-  }
-
-  // TODO use state machine, add end screen, back to menu, etc
-  if (is_game_over) {
-    Frame.clear();
-    Frame.plot_digit(0, 0, (score / 100) % 10, true);
-    Frame.plot_digit(0, 4, (score / 10) % 10, true);
-    Frame.plot_digit(0, 8, (score / 1) % 10, true);
-    Frame.render();
-    PlayStation.update();
-    if (PlayStation.get_pressed() & PlayStation.Start) {
-      first_call = true;
-    }
+void tetro_game_over(StateMachine& state, Timer& timer) {
+  PlayStation.update();
+  if (PlayStation.get_pressed() & PlayStation.Start) {
+    state.next(reset_tetro);
     return;
   }
 
+  if (timer.did_tick() == false) return;
+
+  Frame.clear();
+  Frame.plot_digit(0, 0, (score / 100) % 10, true);
+  Frame.plot_digit(0, 4, (score / 10) % 10, true);
+  Frame.plot_digit(0, 8, (score / 1) % 10, true);
+  Frame.render();
+}
+
+void tetro_loop(StateMachine& state, Timer& timer) {
   // Clear shape before moving with controller
   tetro.draw(false);
 
@@ -402,11 +388,12 @@ void tetro_loop(StateMachine&, Timer& timer) {
       // ...but blocked below, so try to place shape here
       tetro.draw(true);
       if (tetro.try_place() == false) {
-        // TODO add game over state transition
-        is_game_over = true;
+        // TODO add game over animation
+        state.next(tetro_game_over);
+        return;
       }
       // Did placing the shape clear any rows?
-      const uint8_t cleared = g_field.try_drop();
+      const uint8_t cleared = field.try_drop();
       if (cleared > 0) {
         score += cleared * 2 - 1;
         // TODO Uno R4 can just use float multiplication
@@ -424,4 +411,14 @@ void tetro_loop(StateMachine&, Timer& timer) {
   tetro.draw(true);
 
   Frame.render();
+}
+
+void reset_tetro(StateMachine& state, Timer& timer) {
+  Frame.clear();
+  field.clear();
+  period = INIT_PERIOD;
+  score = 0;
+  next_shape();
+
+  state.next(tetro_loop);
 }

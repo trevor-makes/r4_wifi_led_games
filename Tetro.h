@@ -2,4 +2,4 @@
 
 #include "Game.h"
 
-void tetro_loop(StateMachine&, Timer&);
+void reset_tetro(StateMachine&, Timer&);
