@@ -176,9 +176,17 @@ private:
   static_assert(sizeof(row_mask_[0]) * 8 >= NUM_COLS, "bitfield size must exceed num columns");
 
 public:
-  bool is_above(int8_t row) const { return row < 0; }
-  bool is_below(int8_t row) const { return row >= NUM_ROWS; }
-  bool is_above_or_below(int8_t row) const { return is_above(row) || is_below(row); }
+  static bool is_above(int8_t row) { return row < 0; }
+  static bool is_below(int8_t row) { return row >= NUM_ROWS; }
+  static bool is_above_or_below(int8_t row) { return is_above(row) || is_below(row); }
+
+  static bool is_left_of(int8_t col, uint8_t mask) {
+    return col < 0 && (mask & ((1 << -col) - 1)) != 0;
+  }
+
+  static bool is_right_of(int8_t col, uint8_t mask) {
+    return mask >> (NUM_COLS - col) != 0;
+  }
 
   void clear() {
     memset(row_mask_, 0, sizeof(row_mask_));
@@ -187,14 +195,6 @@ public:
   void plot(int8_t row, int8_t col, bool set) {
     if (row < 0 || row >= NUM_ROWS || col < 0 || col >= NUM_COLS) return;
     Frame.plot(NUM_COLS - 1 - col, row, set); // apply rotation transform
-  }
-
-  bool is_left_of(int8_t col, uint8_t mask) {
-    return col < 0 && (mask & ((1 << -col) - 1)) != 0;
-  }
-
-  bool is_right_of(int8_t col, uint8_t mask) {
-    return mask >> (NUM_COLS - col) != 0;
   }
 
   bool is_overlapping(int8_t row, uint8_t mask) const {
@@ -237,15 +237,16 @@ public:
   }
 };
 
-TetroField field;
-
 class Tetro {
-  Shape* shape_;
+  TetroField& field_;
+  Shape* shape_ = nullptr;
   int8_t row_;
   int8_t col_;
   uint8_t rot_;
 
 public:
+  Tetro(TetroField& field): field_{field} {}
+
   void set_shape(Shape* shape) { shape_ = shape; }
   void set_row(int8_t row) { row_ = row; }
   void set_col(int8_t col) { col_ = col; }
@@ -255,7 +256,7 @@ private:
   void draw_row(int8_t row, int8_t col, uint8_t tetro_row, bool set) {
     while (tetro_row > 0) {
       if ((tetro_row & 1) == 1) {
-        field.plot(row, col, set);
+        field_.plot(row, col, set);
       }
       ++col;
       tetro_row >>= 1;
@@ -274,12 +275,12 @@ public:
 private:
   bool is_valid_move_row(int8_t row, int8_t col, uint8_t tetro_row) const {
     if (tetro_row == 0) return true; // skip rows without pixels
-    if (field.is_below(row)) return false; // block offscreen pixels below
-    if (field.is_left_of(col, tetro_row)) return false; // test left boundary
-    if (field.is_right_of(col, tetro_row)) return false; // test right boundary
-    if (field.is_above(row)) return true; // allow shapes falling from offscreen above
+    if (field_.is_below(row)) return false; // block offscreen pixels below
+    if (field_.is_left_of(col, tetro_row)) return false; // test left boundary
+    if (field_.is_right_of(col, tetro_row)) return false; // test right boundary
+    if (field_.is_above(row)) return true; // allow shapes falling from offscreen above
     uint8_t tetro_mask = (col >= 0) ? (tetro_row << col) : (tetro_row >> -col);
-    return !field.is_overlapping(row, tetro_mask);
+    return !field_.is_overlapping(row, tetro_mask);
   }
 
   bool is_valid_move(int8_t row, int8_t col, uint8_t rot) const {
@@ -292,11 +293,11 @@ private:
 
   bool try_place_row(int8_t row, int8_t col, uint8_t tetro_row) {
     if (tetro_row == 0) return true;
-    if (field.is_above_or_below(row)) return false; // can't place offscreen
-    if (field.is_left_of(col, tetro_row)) return false; // test left boundary
-    if (field.is_right_of(col, tetro_row)) return false; // test right boundary
+    if (field_.is_above_or_below(row)) return false; // can't place offscreen
+    if (field_.is_left_of(col, tetro_row)) return false; // test left boundary
+    if (field_.is_right_of(col, tetro_row)) return false; // test right boundary
     uint8_t tetro_mask = (col >= 0) ? (tetro_row << col) : (tetro_row >> -col);
-    return field.try_place(row, tetro_mask);
+    return field_.try_place(row, tetro_mask);
   }
 
 public:
@@ -329,7 +330,9 @@ public:
   }
 };
 
-Tetro tetro;
+
+TetroField field;
+Tetro tetro(field);
 static uint16_t score;
 static unsigned long period;
 
