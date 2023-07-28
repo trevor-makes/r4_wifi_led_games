@@ -2,6 +2,9 @@
 
 #include "Frame.h"
 #include "PlayStation.h"
+#include "Game.h"
+
+void menu_loop(StateMachine&, Timer&);
 
 class Head {
 private:

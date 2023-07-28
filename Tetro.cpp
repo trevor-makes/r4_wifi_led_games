@@ -348,7 +348,7 @@ void next_shape() {
   tetro.set_rot(0);
 }
 
-void tetro_loop(Timer& timer) {
+void tetro_loop(StateMachine&, Timer& timer) {
   // TODO add game over state
   static bool is_game_over = false;
 
