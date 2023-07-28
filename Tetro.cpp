@@ -332,6 +332,10 @@ public:
 
 Tetro tetro;
 static uint16_t score;
+static unsigned long period;
+
+constexpr unsigned long INIT_PERIOD = 1000;
+constexpr unsigned long MIN_PERIOD = 100;
 
 void next_shape() {
   // TODO random shuffle deck of shapes or w/e rando algo
@@ -353,7 +357,7 @@ void tetro_loop(Timer& timer) {
   if (first_call) {
     Frame.clear();
     g_field.clear();
-    timer.set_period(1000);
+    period = INIT_PERIOD;
     score = 0;
     is_game_over = false;
     next_shape();
@@ -389,6 +393,7 @@ void tetro_loop(Timer& timer) {
   }
 
   const bool drop_now = (pressed & PlayStation.Cross);
+  timer.set_period((PlayStation.get_held() & PlayStation.Cross) ? MIN_PERIOD : period);
 
   // Wait for next timer tick
   if (drop_now || timer.did_tick()) {
@@ -404,10 +409,11 @@ void tetro_loop(Timer& timer) {
       const uint8_t cleared = g_field.try_drop();
       if (cleared > 0) {
         score += cleared * 2 - 1;
-        // TODO Uno R4 can just use float
-        auto period = timer.get_period();
-        period = (period >> 4) + (period >> 3) + (period >> 2) + (period >> 1);
-        timer.set_period(period);
+        // TODO Uno R4 can just use float multiplication
+        if (period > MIN_PERIOD) {
+          period = (period >> 4) + (period >> 3) + (period >> 2) + (period >> 1);
+          period = max(period, MIN_PERIOD);
+        }
       }
       // Cycle to next shape
       next_shape();
