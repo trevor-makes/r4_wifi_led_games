@@ -239,6 +239,7 @@ int8_t row;
 int8_t col;
 uint8_t rot;
 uint16_t cur_tetro;
+static uint16_t score;
 
 void next_shape() {
   // TODO random shuffle deck of shapes or w/e rando algo
@@ -280,14 +281,27 @@ void tetro_loop(Timer& timer) {
   // TODO add an init call/state to do the following
   static bool first_call = true;
   if (first_call) {
+    Frame.clear();
     memset(row_mask, 0, sizeof(row_mask));
+    score = 0;
     is_game_over = false;
     next_shape();
     first_call = false;
   }
 
   // TODO use state machine, add end screen, back to menu, etc
-  if (is_game_over) return;
+  if (is_game_over) {
+    Frame.clear();
+    Frame.plot_digit(0, 0, (score / 100) % 10, true);
+    Frame.plot_digit(0, 4, (score / 10) % 10, true);
+    Frame.plot_digit(0, 8, (score / 1) % 10, true);
+    Frame.render();
+    PlayStation.update();
+    if (PlayStation.get_pressed() & PlayStation.Start) {
+      first_call = true;
+    }
+    return;
+  }
 
   // Clear shape before moving with controller
   draw_tetro(row, col, cur_tetro, false);
@@ -329,9 +343,9 @@ void tetro_loop(Timer& timer) {
         is_game_over = true;
       }
       // Did placing the shape clear any rows?
-      if (clear_rows(row) > 0) {
-        // TODO scroll/redraw rows above
-        // TODO increment score based on num rows cleared
+      const uint8_t cleared = clear_rows(row);
+      if (cleared > 0) {
+        score += cleared * 2 - 1;
         // TODO Uno R4 can just use float
         auto period = timer.get_period();
         period = (period >> 4) + (period >> 3) + (period >> 2) + (period >> 1);
