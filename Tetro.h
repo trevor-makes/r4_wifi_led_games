@@ -2,8 +2,8 @@
 
 #include "Game.h"
 
-// menu -> game_setup -> game_loop
-//  ^-------^-- score_loop <-/
-void tetro_game_setup(StateMachine&, Timer&);
-void tetro_game_loop(StateMachine&, Timer&);
-void tetro_score_loop(StateMachine&, Timer&);
+// menu -> game -> score
+//  ^-------^-------/
+extern const State tetro_menu_state;
+extern const State tetro_game_state;
+extern const State tetro_score_state;

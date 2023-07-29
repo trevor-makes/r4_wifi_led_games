@@ -4,6 +4,29 @@
 
 #include <stdint.h>
 
+void tetro_menu_setup(StateMachine&, Timer&);
+void tetro_menu_loop(StateMachine&, Timer&);
+
+const State tetro_menu_state = {
+  .setup = tetro_menu_setup,
+  .loop = tetro_menu_loop,
+};
+
+void tetro_game_setup(StateMachine&, Timer&);
+void tetro_game_loop(StateMachine&, Timer&);
+
+const State tetro_game_state = {
+  .setup = tetro_game_setup,
+  .loop = tetro_game_loop,
+};
+
+void tetro_score_loop(StateMachine&, Timer&);
+
+const State tetro_score_state = {
+  .setup = nullptr,
+  .loop = tetro_score_loop,
+};
+
 struct Shape {
   uint8_t count;
   uint16_t data[];
@@ -330,7 +353,6 @@ public:
   }
 };
 
-
 TetroField field;
 Tetro tetro(field);
 static uint16_t score;
@@ -338,6 +360,24 @@ static unsigned long period;
 
 constexpr unsigned long INIT_PERIOD = 1000;
 constexpr unsigned long MIN_PERIOD = 100;
+
+void tetro_menu_setup(StateMachine& state, Timer& timer) {
+  field.clear();
+  tetro.set_shape(&shape_L);
+  tetro.set_row(4);
+  tetro.set_col(2);
+  tetro.set_rot(0);
+  timer.set_period(150);
+}
+
+void tetro_menu_loop(StateMachine& state, Timer& timer) {
+  if (timer.did_tick() == false) return;
+
+  Frame.clear();
+  tetro.draw(true);
+  tetro.try_rotate(1);
+  Frame.render();
+}
 
 void next_shape() {
   // TODO random shuffle deck of shapes or w/e rando algo
@@ -356,8 +396,8 @@ void tetro_score_loop(StateMachine& state, Timer& timer) {
   if (pressed & PlayStation.Select) {
     state.back(); // go back to the parent menu
     return;
-  } else if (pressed & PlayStation.Start) {
-    state.next(tetro_game_setup);
+  } else if (pressed & (PlayStation.Start | PlayStation.Cross)) {
+    state.next(tetro_game_state);
     return;
   }
 
@@ -396,7 +436,7 @@ void tetro_game_loop(StateMachine& state, Timer& timer) {
       tetro.draw(true);
       if (tetro.try_place() == false) {
         // TODO add game over animation
-        state.next(tetro_score_loop);
+        state.next(tetro_score_state);
         return;
       }
       // Did placing the shape clear any rows?
@@ -426,6 +466,4 @@ void tetro_game_setup(StateMachine& state, Timer& timer) {
   period = INIT_PERIOD;
   score = 0;
   next_shape();
-
-  state.next(tetro_game_loop);
 }

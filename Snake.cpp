@@ -2,6 +2,37 @@
 #include "Frame.h"
 #include "PlayStation.h"
 
+void snake_menu_setup(StateMachine&, Timer&);
+void snake_menu_loop(StateMachine&, Timer&);
+
+const State snake_menu_state = {
+  .setup = snake_menu_setup,
+  .loop = snake_menu_loop,
+};
+
+void snake_game_setup(StateMachine&, Timer&);
+void snake_game_loop(StateMachine&, Timer&);
+
+const State snake_game_state = {
+  .setup = snake_game_setup,
+  .loop = snake_game_loop,
+};
+
+void snake_death_setup(StateMachine&, Timer&);
+void snake_death_loop(StateMachine&, Timer&);
+
+const State snake_death_state = {
+  .setup = snake_death_setup,
+  .loop = snake_death_loop,
+};
+
+void snake_score_loop(StateMachine&, Timer&);
+
+const State snake_score_state = {
+  .setup = nullptr,
+  .loop = snake_score_loop,
+};
+
 class Head {
 private:
   uint16_t head_dir;
@@ -161,6 +192,44 @@ public:
   }
 };
 
+void snake_menu_setup(StateMachine&, Timer& timer) {
+  Frame.clear();
+  Frame.render();
+  timer.set_period(150);
+}
+
+void snake_menu_loop(StateMachine& state, Timer& timer) {
+  if (timer.did_tick() == false) return;
+
+  // Trace a rectangle
+  auto xform = [](uint8_t i) {
+    i = i % 16;
+    uint8_t row, col;
+    if (i < 5) {
+      col = 3 + i;
+      row = 2;
+    } else if (i < 8) {
+      col = 3 + 5;
+      row = 2 + (i - 5);
+    } else if (i < 13) {
+      col = 3 + 5 - (i - 8);
+      row = 2 + 3;
+    } else /*if (i < 16)*/ {
+      col = 3;
+      row = 2 + 3 - (i - 13);
+    }
+    return std::make_tuple(row, col);
+  };
+
+  static uint8_t i = 0;
+  auto [row1, col1] = xform(i + 5);
+  auto [row2, col2] = xform(i);
+  Frame.plot(row1, col1, true);
+  Frame.plot(row2, col2, false);
+  if (++i >= 16) i = 0;
+  Frame.render();
+}
+
 static Head head;
 static Tail tail;
 static Apple apple;
@@ -197,7 +266,7 @@ void snake_death_loop(StateMachine& state, Timer& timer) {
     tail.shrink();
     Frame.render();
   } else {
-    state.next(snake_score_loop);
+    state.next(snake_score_state);
     return;
   }
 }
@@ -205,7 +274,6 @@ void snake_death_loop(StateMachine& state, Timer& timer) {
 void snake_death_setup(StateMachine& state, Timer& timer) {
   Frame.fill(true); // invert screen
   reset_frame_period(timer);
-  state.next(snake_death_loop);
 }
 
 void snake_game_loop(StateMachine& state, Timer& timer) {
@@ -221,13 +289,13 @@ void snake_game_loop(StateMachine& state, Timer& timer) {
 
   // Move forward; game over if head hits wall
   if (!head.update()) {
-    state.next(snake_death_setup);
+    state.next(snake_death_state);
     return;
   }
 
   // Game over if head eats tail
   if (tail.overlaps(head)) {
-    state.next(snake_death_setup);
+    state.next(snake_death_state);
     return;
   }
 
@@ -259,7 +327,6 @@ void snake_game_setup(StateMachine& state, Timer& timer) {
   score = 0;
 
   reset_frame_period(timer);
-  state.next(snake_game_loop);
 }
 
 void snake_score_loop(StateMachine& state, Timer& timer) {
@@ -268,8 +335,8 @@ void snake_score_loop(StateMachine& state, Timer& timer) {
   if (pressed & PlayStation.Select) {
     state.back(); // go back to the parent menu
     return;
-  } else if (pressed & PlayStation.Start) {
-    state.next(snake_game_setup);
+  } else if (pressed & (PlayStation.Start | PlayStation.Cross)) {
+    state.next(snake_game_state);
     return;
   }
 

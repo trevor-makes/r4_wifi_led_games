@@ -3,32 +3,55 @@
 #include "Frame.h"
 #include "PlayStation.h"
 
-StateMachine state;
+#include <tuple>
 
-void main_menu(StateMachine& state, Timer& timer) {
+void snake_menu_input(StateMachine&, Timer&);
+
+State snake_menu = {
+  .setup = snake_menu_state.setup,
+  .loop = snake_menu_input,
+};
+
+void tetro_menu_input(StateMachine&, Timer&);
+
+State tetro_menu = {
+  .setup = tetro_menu_state.setup,
+  .loop = tetro_menu_input,
+};
+
+template <const State& LEFT, const State& RIGHT, const State& START>
+void menu_selection(StateMachine& state) {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
-  // TODO select game by left/right (arrows, shoulders), start with start
-  if (pressed & PlayStation.Cross) {
-    state.enter(snake_game_setup);
+  if (pressed & (PlayStation.Left | PlayStation.L1)) {
+    state.next(LEFT);
     return;
-  } else if (pressed & PlayStation.Circle) {
-    state.enter(tetro_game_setup);
+  } else if (pressed & (PlayStation.Right | PlayStation.R1)) {
+    state.next(RIGHT);
+    return;
+  } else if (pressed & (PlayStation.Start | PlayStation.Cross)) {
+    state.enter(START);
     return;
   }
-
-  if (timer.did_tick() == false) return;
-
-  Frame.clear();
-  // TODO add menu graphic/animation
-  Frame.render();
 }
+
+void snake_menu_input(StateMachine& state, Timer& timer) {
+  menu_selection<tetro_menu, tetro_menu, snake_game_state>(state);
+  snake_menu_state.loop(state, timer);
+}
+
+void tetro_menu_input(StateMachine& state, Timer& timer) {
+  menu_selection<snake_menu, snake_menu, tetro_game_state>(state);
+  tetro_menu_state.loop(state, timer);
+}
+
+StateMachine state;
 
 void setup() {
   PlayStation.begin();
   Frame.begin();
 
-  state.enter(main_menu);
+  state.enter(snake_menu);
 }
 
 void loop() {
