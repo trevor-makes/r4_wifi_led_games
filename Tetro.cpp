@@ -350,10 +350,14 @@ void next_shape() {
   tetro.set_rot(0);
 }
 
-void tetro_game_over(StateMachine& state, Timer& timer) {
+void tetro_score_loop(StateMachine& state, Timer& timer) {
   PlayStation.update();
-  if (PlayStation.get_pressed() & PlayStation.Start) {
-    state.next(reset_tetro);
+  const auto pressed = PlayStation.get_pressed();
+  if (pressed & PlayStation.Select) {
+    state.back(); // go back to the parent menu
+    return;
+  } else if (pressed & PlayStation.Start) {
+    state.next(tetro_game_setup);
     return;
   }
 
@@ -366,7 +370,7 @@ void tetro_game_over(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
-void tetro_loop(StateMachine& state, Timer& timer) {
+void tetro_game_loop(StateMachine& state, Timer& timer) {
   // Clear shape before moving with controller
   tetro.draw(false);
 
@@ -392,7 +396,7 @@ void tetro_loop(StateMachine& state, Timer& timer) {
       tetro.draw(true);
       if (tetro.try_place() == false) {
         // TODO add game over animation
-        state.next(tetro_game_over);
+        state.next(tetro_score_loop);
         return;
       }
       // Did placing the shape clear any rows?
@@ -416,12 +420,12 @@ void tetro_loop(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
-void reset_tetro(StateMachine& state, Timer& timer) {
+void tetro_game_setup(StateMachine& state, Timer& timer) {
   Frame.clear();
   field.clear();
   period = INIT_PERIOD;
   score = 0;
   next_shape();
 
-  state.next(tetro_loop);
+  state.next(tetro_game_loop);
 }
