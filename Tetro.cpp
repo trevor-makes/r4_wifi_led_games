@@ -209,6 +209,11 @@ public:
     return row_mask_[row] == uint8_t(~0);
   }
 
+  bool is_empty(int8_t row) const {
+    if (is_above_or_below(row)) return true;
+    return row_mask_[row] == 0;
+  }
+
   bool try_place(int8_t row, uint8_t mask) {
     if (is_above_or_below(row)) return false;
     if (is_overlapping(row, mask)) return false;
@@ -338,7 +343,7 @@ static uint16_t score;
 static unsigned long period;
 
 constexpr unsigned long INIT_PERIOD = 1000;
-constexpr unsigned long MIN_PERIOD = 100;
+constexpr unsigned long MIN_PERIOD = 75;
 
 void tetro_menu_setup(StateMachine&, Timer&);
 void tetro_menu_loop(StateMachine&, Timer&);
@@ -354,6 +359,14 @@ void tetro_game_loop(StateMachine&, Timer&);
 const State tetro_game_state = {
   .setup = tetro_game_setup,
   .loop = tetro_game_loop,
+};
+
+void tetro_fail_setup(StateMachine&, Timer&);
+void tetro_fail_loop(StateMachine&, Timer&);
+
+const State tetro_fail_state = {
+  .setup = tetro_fail_setup,
+  .loop = tetro_fail_loop,
 };
 
 void tetro_score_loop(StateMachine&, Timer&);
@@ -403,6 +416,21 @@ void tetro_score_loop(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
+void tetro_fail_loop(StateMachine& state, Timer& timer) {
+  if (timer.did_tick() == false) return;
+
+  field.drop_row(field.NUM_ROWS - 1);
+  Frame.render();
+
+  if (field.is_empty(field.NUM_ROWS - 1)) {
+    state.next(tetro_score_state);
+  }
+}
+
+void tetro_fail_setup(StateMachine& state, Timer& timer) {
+  timer.set_period(150);
+}
+
 void next_shape() {
   // TODO shuffle a deck or ?? to make pieces easier to work with
   uint8_t num = random(NUM_SHAPES);
@@ -437,8 +465,7 @@ void tetro_game_loop(StateMachine& state, Timer& timer) {
       // ...but blocked below, so try to place shape here
       tetro.draw(true);
       if (tetro.try_place() == false) {
-        // TODO add game over animation
-        state.next(tetro_score_state);
+        state.next(tetro_fail_state);
         return;
       }
       // Did placing the shape clear any rows?
