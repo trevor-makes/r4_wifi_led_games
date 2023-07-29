@@ -188,7 +188,8 @@ Shape shape_L = {
     },
 };
 
-Shape* shapes[7] = {&shape_I, &shape_Z, &shape_S, &shape_O, &shape_T, &shape_J, &shape_L};
+Shape* shapes[] = {&shape_I, &shape_Z, &shape_S, &shape_O, &shape_T, &shape_J, &shape_L};
+constexpr uint8_t NUM_SHAPES = sizeof(shapes) / sizeof(shapes[0]);
 
 class TetroField {
 public:
@@ -367,7 +368,7 @@ void tetro_menu_setup(StateMachine& state, Timer& timer) {
   tetro.set_row(4);
   tetro.set_col(2);
   tetro.set_rot(0);
-  timer.set_period(150);
+  timer.set_period(300);
 }
 
 void tetro_menu_loop(StateMachine& state, Timer& timer) {
@@ -377,17 +378,6 @@ void tetro_menu_loop(StateMachine& state, Timer& timer) {
   tetro.draw(true);
   tetro.try_rotate(1);
   Frame.render();
-}
-
-void next_shape() {
-  // TODO random shuffle deck of shapes or w/e rando algo
-  static uint8_t num = 0;
-  if (num >= 7) num = 0;
-
-  tetro.set_shape(shapes[num++]);
-  tetro.set_row(-2);
-  tetro.set_col((field.NUM_COLS - 3) / 2);
-  tetro.set_rot(0);
 }
 
 void tetro_score_loop(StateMachine& state, Timer& timer) {
@@ -408,6 +398,15 @@ void tetro_score_loop(StateMachine& state, Timer& timer) {
   Frame.plot_digit(0, 4, (score / 10) % 10, true);
   Frame.plot_digit(0, 8, (score / 1) % 10, true);
   Frame.render();
+}
+
+void next_shape() {
+  // TODO shuffle a deck or ?? to make pieces easier to work with
+  uint8_t num = random(NUM_SHAPES);
+  tetro.set_shape(shapes[num]);
+  tetro.set_row(-2);
+  tetro.set_col((field.NUM_COLS - 3) / 2);
+  tetro.set_rot(0);
 }
 
 void tetro_game_loop(StateMachine& state, Timer& timer) {
@@ -465,5 +464,6 @@ void tetro_game_setup(StateMachine& state, Timer& timer) {
   field.clear();
   period = INIT_PERIOD;
   score = 0;
+  randomSeed(micros());
   next_shape();
 }
