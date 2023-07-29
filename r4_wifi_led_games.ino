@@ -13,5 +13,5 @@ void setup() {
 }
 
 void loop() {
-  state.update();
+  state.loop();
 }

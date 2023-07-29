@@ -387,7 +387,7 @@ void tetro_score_loop(StateMachine& state, Timer& timer) {
   PlayStation.update();
   const auto pressed = PlayStation.get_pressed();
   if (pressed & PlayStation.Select) {
-    state.back(); // go back to the parent menu
+    state.exit(); // go back to the parent menu
     return;
   } else if (pressed & PlayStation.Start) {
     state.next(tetro_game_state);

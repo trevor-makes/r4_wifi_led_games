@@ -43,7 +43,7 @@ public:
     needs_setup_ = true;
   }
 
-  void back() {
+  void exit() {
     if (!states_.empty()) {
       states_.pop_back();
     }
@@ -51,14 +51,14 @@ public:
   }
 
   void next(const State& state) {
-    back(); // lose the current state
+    exit(); // lose the current state
     enter(state);
   }
 
-  void update() {
+  void loop() {
     if (!states_.empty()) {
       auto& state = states_.back();
-      // NOTE setup will never be called if update/loop is never called
+      // NOTE setup will never be called if loop is never called
       if (needs_setup_) {
         if (state.setup) state.setup(*this, timer_);
         needs_setup_ = false;

@@ -278,7 +278,6 @@ void snake_death_loop(StateMachine& state, Timer& timer) {
 
 void snake_death_setup(StateMachine& state, Timer& timer) {
   Frame.fill(true); // invert screen
-  reset_frame_period(timer);
 }
 
 void snake_game_loop(StateMachine& state, Timer& timer) {
@@ -319,7 +318,6 @@ void snake_game_loop(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
-// TODO one-shot state could be setup/loop pattern
 void snake_game_setup(StateMachine& state, Timer& timer) {
   Frame.clear();
 
@@ -338,7 +336,7 @@ void snake_score_loop(StateMachine& state, Timer& timer) {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
   if (pressed & PlayStation.Select) {
-    state.back(); // go back to the parent menu
+    state.exit(); // go back to the parent menu
     return;
   } else if (pressed & PlayStation.Start) {
     state.next(snake_game_state);
