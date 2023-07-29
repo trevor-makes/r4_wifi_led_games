@@ -164,46 +164,6 @@ public:
   }
 };
 
-void snake_menu_setup(StateMachine&, Timer& timer) {
-  Frame.clear();
-  Frame.render();
-  timer.set_period(150);
-}
-
-void snake_menu_loop(StateMachine& state, Timer& timer) {
-  if (menu_selection<snake_left_state, snake_right_state, snake_game_state>(state)) return;
-
-  if (timer.did_tick() == false) return;
-
-  // Trace a rectangle
-  auto xform = [](uint8_t i) {
-    i = i % 16;
-    uint8_t row, col;
-    if (i < 5) {
-      col = 3 + i;
-      row = 2;
-    } else if (i < 8) {
-      col = 3 + 5;
-      row = 2 + (i - 5);
-    } else if (i < 13) {
-      col = 3 + 5 - (i - 8);
-      row = 2 + 3;
-    } else /*if (i < 16)*/ {
-      col = 3;
-      row = 2 + 3 - (i - 13);
-    }
-    return std::make_tuple(row, col);
-  };
-
-  static uint8_t i = 0;
-  auto [row1, col1] = xform(i + 5);
-  auto [row2, col2] = xform(i);
-  Frame.plot(row1, col1, true);
-  Frame.plot(row2, col2, false);
-  if (++i >= 16) i = 0;
-  Frame.render();
-}
-
 static Head head;
 static Tail tail;
 static Apple apple;
@@ -261,6 +221,46 @@ const State snake_score_state = {
   .setup = nullptr,
   .loop = snake_score_loop,
 };
+
+void snake_menu_setup(StateMachine&, Timer& timer) {
+  Frame.clear();
+  Frame.render();
+  timer.set_period(150);
+}
+
+void snake_menu_loop(StateMachine& state, Timer& timer) {
+  if (menu_selection<snake_left_state, snake_right_state, snake_game_state>(state)) return;
+
+  if (timer.did_tick() == false) return;
+
+  // Trace a rectangle
+  auto xform = [](uint8_t i) {
+    i = i % 16;
+    uint8_t row, col;
+    if (i < 5) {
+      col = 3 + i;
+      row = 2;
+    } else if (i < 8) {
+      col = 3 + 5;
+      row = 2 + (i - 5);
+    } else if (i < 13) {
+      col = 3 + 5 - (i - 8);
+      row = 2 + 3;
+    } else /*if (i < 16)*/ {
+      col = 3;
+      row = 2 + 3 - (i - 13);
+    }
+    return std::make_tuple(row, col);
+  };
+
+  static uint8_t i = 0;
+  auto [row1, col1] = xform(i + 5);
+  auto [row2, col2] = xform(i);
+  Frame.plot(row1, col1, true);
+  Frame.plot(row2, col2, false);
+  if (++i >= 16) i = 0;
+  Frame.render();
+}
 
 void snake_death_loop(StateMachine& state, Timer& timer) {
   if (timer.did_tick() == false) return;
