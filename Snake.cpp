@@ -1,37 +1,9 @@
 #include "Snake.h"
 #include "Frame.h"
 #include "PlayStation.h"
+#include "Menu.h"
 
-void snake_menu_setup(StateMachine&, Timer&);
-void snake_menu_loop(StateMachine&, Timer&);
-
-const State snake_menu_state = {
-  .setup = snake_menu_setup,
-  .loop = snake_menu_loop,
-};
-
-void snake_game_setup(StateMachine&, Timer&);
-void snake_game_loop(StateMachine&, Timer&);
-
-const State snake_game_state = {
-  .setup = snake_game_setup,
-  .loop = snake_game_loop,
-};
-
-void snake_death_setup(StateMachine&, Timer&);
-void snake_death_loop(StateMachine&, Timer&);
-
-const State snake_death_state = {
-  .setup = snake_death_setup,
-  .loop = snake_death_loop,
-};
-
-void snake_score_loop(StateMachine&, Timer&);
-
-const State snake_score_state = {
-  .setup = nullptr,
-  .loop = snake_score_loop,
-};
+#include <tuple>
 
 class Head {
 private:
@@ -199,6 +171,8 @@ void snake_menu_setup(StateMachine&, Timer& timer) {
 }
 
 void snake_menu_loop(StateMachine& state, Timer& timer) {
+  if (menu_selection<snake_left_state, snake_right_state, snake_game_state>(state)) return;
+
   if (timer.did_tick() == false) return;
 
   // Trace a rectangle
@@ -256,6 +230,37 @@ void shrink_frame_period(Timer& timer) {
   }
   timer.set_period(frame_period);
 }
+
+void snake_menu_setup(StateMachine&, Timer&);
+void snake_menu_loop(StateMachine&, Timer&);
+
+const State snake_menu_state = {
+  .setup = snake_menu_setup,
+  .loop = snake_menu_loop,
+};
+
+void snake_game_setup(StateMachine&, Timer&);
+void snake_game_loop(StateMachine&, Timer&);
+
+const State snake_game_state = {
+  .setup = snake_game_setup,
+  .loop = snake_game_loop,
+};
+
+void snake_death_setup(StateMachine&, Timer&);
+void snake_death_loop(StateMachine&, Timer&);
+
+const State snake_death_state = {
+  .setup = snake_death_setup,
+  .loop = snake_death_loop,
+};
+
+void snake_score_loop(StateMachine&, Timer&);
+
+const State snake_score_state = {
+  .setup = nullptr,
+  .loop = snake_score_loop,
+};
 
 void snake_death_loop(StateMachine& state, Timer& timer) {
   if (timer.did_tick() == false) return;
@@ -335,7 +340,7 @@ void snake_score_loop(StateMachine& state, Timer& timer) {
   if (pressed & PlayStation.Select) {
     state.back(); // go back to the parent menu
     return;
-  } else if (pressed & (PlayStation.Start | PlayStation.Cross)) {
+  } else if (pressed & PlayStation.Start) {
     state.next(snake_game_state);
     return;
   }

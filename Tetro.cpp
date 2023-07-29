@@ -1,31 +1,9 @@
 #include "Tetro.h"
 #include "PlayStation.h"
 #include "Frame.h"
+#include "Menu.h"
 
 #include <stdint.h>
-
-void tetro_menu_setup(StateMachine&, Timer&);
-void tetro_menu_loop(StateMachine&, Timer&);
-
-const State tetro_menu_state = {
-  .setup = tetro_menu_setup,
-  .loop = tetro_menu_loop,
-};
-
-void tetro_game_setup(StateMachine&, Timer&);
-void tetro_game_loop(StateMachine&, Timer&);
-
-const State tetro_game_state = {
-  .setup = tetro_game_setup,
-  .loop = tetro_game_loop,
-};
-
-void tetro_score_loop(StateMachine&, Timer&);
-
-const State tetro_score_state = {
-  .setup = nullptr,
-  .loop = tetro_score_loop,
-};
 
 struct Shape {
   uint8_t count;
@@ -362,6 +340,29 @@ static unsigned long period;
 constexpr unsigned long INIT_PERIOD = 1000;
 constexpr unsigned long MIN_PERIOD = 100;
 
+void tetro_menu_setup(StateMachine&, Timer&);
+void tetro_menu_loop(StateMachine&, Timer&);
+
+const State tetro_menu_state = {
+  .setup = tetro_menu_setup,
+  .loop = tetro_menu_loop,
+};
+
+void tetro_game_setup(StateMachine&, Timer&);
+void tetro_game_loop(StateMachine&, Timer&);
+
+const State tetro_game_state = {
+  .setup = tetro_game_setup,
+  .loop = tetro_game_loop,
+};
+
+void tetro_score_loop(StateMachine&, Timer&);
+
+const State tetro_score_state = {
+  .setup = nullptr,
+  .loop = tetro_score_loop,
+};
+
 void tetro_menu_setup(StateMachine& state, Timer& timer) {
   field.clear();
   tetro.set_shape(&shape_L);
@@ -372,6 +373,8 @@ void tetro_menu_setup(StateMachine& state, Timer& timer) {
 }
 
 void tetro_menu_loop(StateMachine& state, Timer& timer) {
+  if (menu_selection<tetro_left_state, tetro_right_state, tetro_game_state>(state)) return;
+
   if (timer.did_tick() == false) return;
 
   Frame.clear();
@@ -386,7 +389,7 @@ void tetro_score_loop(StateMachine& state, Timer& timer) {
   if (pressed & PlayStation.Select) {
     state.back(); // go back to the parent menu
     return;
-  } else if (pressed & (PlayStation.Start | PlayStation.Cross)) {
+  } else if (pressed & PlayStation.Start) {
     state.next(tetro_game_state);
     return;
   }
