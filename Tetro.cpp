@@ -259,6 +259,10 @@ public:
   void set_col(int8_t col) { col_ = col; }
   void set_rot(uint8_t rot) { rot_ = rot; }
 
+  uint8_t get_row() const { return row_; }
+  uint8_t get_col() const { return col_; }
+  uint8_t get_rot() const { return rot_; }
+
 private:
   void draw_row(int8_t row, int8_t col, uint8_t tetro_row, bool set) {
     while (tetro_row > 0) {
@@ -379,8 +383,6 @@ const State tetro_score_state = {
 void tetro_menu_setup(StateMachine& state, Timer& timer) {
   field.clear();
   tetro.set_shape(&shape_L);
-  tetro.set_row(4);
-  tetro.set_col(2);
   tetro.set_rot(0);
   timer.set_period(300);
 }
@@ -391,6 +393,24 @@ void tetro_menu_loop(StateMachine& state, Timer& timer) {
   if (timer.did_tick() == false) return;
 
   Frame.clear();
+  switch (tetro.get_rot()) {
+    case 0:
+      tetro.set_row(4+1);
+      tetro.set_col(2-1);
+      break;
+    case 1:
+      tetro.set_row(4-1);
+      tetro.set_col(2+0);
+      break;
+    case 2:
+      tetro.set_row(4+0);
+      tetro.set_col(2+2);
+      break;
+    case 3:
+      tetro.set_row(4+2);
+      tetro.set_col(2+1);
+      break;
+  }
   tetro.draw(true);
   tetro.try_rotate(1);
   Frame.render();
