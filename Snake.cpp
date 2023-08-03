@@ -263,6 +263,14 @@ void snake_menu_loop(StateMachine& state, Timer& timer) {
 }
 
 void snake_death_loop(StateMachine& state, Timer& timer) {
+  // Exit animation early
+  PlayStation.update();
+  uint16_t pressed = PlayStation.get_pressed();
+  if (pressed & PlayStation.Select) {
+    state.next(snake_score_state);
+    return;
+  }
+
   if (timer.did_tick() == false) return;
 
   shrink_frame_period(timer);
@@ -283,6 +291,13 @@ void snake_death_setup(StateMachine& state, Timer& timer) {
 void snake_game_loop(StateMachine& state, Timer& timer) {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
+
+  // Exit game early
+  if (pressed & PlayStation.Select) {
+    state.next(snake_death_state);
+    return;
+  }
+
   head.try_move(pressed & PlayStation.Left);
   head.try_move(pressed & PlayStation.Right);
   head.try_move(pressed & PlayStation.Up);

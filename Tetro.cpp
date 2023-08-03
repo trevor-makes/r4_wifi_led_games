@@ -417,6 +417,14 @@ void tetro_score_loop(StateMachine& state, Timer& timer) {
 }
 
 void tetro_fail_loop(StateMachine& state, Timer& timer) {
+  // Exit animation early
+  PlayStation.update();
+  const auto pressed = PlayStation.get_pressed();
+  if (pressed & PlayStation.Select) {
+    state.next(tetro_score_state);
+    return;
+  }
+
   if (timer.did_tick() == false) return;
 
   field.drop_row(field.NUM_ROWS - 1);
@@ -445,9 +453,15 @@ void tetro_game_loop(StateMachine& state, Timer& timer) {
   tetro.draw(false);
 
   PlayStation.update();
+  uint16_t pressed = PlayStation.get_pressed();
+
+  // Exit game early
+  if (pressed & PlayStation.Select) {
+    state.next(tetro_fail_state);
+    return;
+  }
 
   // Move/rotate shape
-  uint16_t pressed = PlayStation.get_pressed();
   if ((pressed & (PlayStation.Left | PlayStation.Right)) != 0) {
     tetro.try_move(0, (pressed & PlayStation.Left) ? -1 : 1);
   }
