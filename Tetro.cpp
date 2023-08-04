@@ -341,53 +341,55 @@ public:
   }
 };
 
-TetroField field;
-Tetro tetro(field);
+static TetroField field;
+static Tetro tetro(field);
 static uint16_t score;
 static unsigned long period;
+static Timer timer;
 
 constexpr unsigned long INIT_PERIOD = 1000;
 constexpr unsigned long MIN_PERIOD = 75;
 
-void tetro_menu_setup(StateMachine&, Timer&);
-void tetro_menu_loop(StateMachine&, Timer&);
+void tetro_menu_setup(StateMachine&);
+void tetro_menu_loop(StateMachine&);
 
 const State tetro_menu_state = {
   .setup = tetro_menu_setup,
   .loop = tetro_menu_loop,
 };
 
-void tetro_game_setup(StateMachine&, Timer&);
-void tetro_game_loop(StateMachine&, Timer&);
+void tetro_game_setup(StateMachine&);
+void tetro_game_loop(StateMachine&);
 
 const State tetro_game_state = {
   .setup = tetro_game_setup,
   .loop = tetro_game_loop,
 };
 
-void tetro_fail_setup(StateMachine&, Timer&);
-void tetro_fail_loop(StateMachine&, Timer&);
+void tetro_fail_setup(StateMachine&);
+void tetro_fail_loop(StateMachine&);
 
 const State tetro_fail_state = {
   .setup = tetro_fail_setup,
   .loop = tetro_fail_loop,
 };
 
-void tetro_score_loop(StateMachine&, Timer&);
+void tetro_score_loop(StateMachine&);
 
 const State tetro_score_state = {
   .setup = nullptr,
   .loop = tetro_score_loop,
 };
 
-void tetro_menu_setup(StateMachine& state, Timer& timer) {
+void tetro_menu_setup(StateMachine& state) {
   field.clear();
   tetro.set_shape(&shape_L);
   tetro.set_rot(0);
   timer.set_period(300);
+  timer.reset();
 }
 
-void tetro_menu_loop(StateMachine& state, Timer& timer) {
+void tetro_menu_loop(StateMachine& state) {
   if (menu_selection<tetro_left_state, tetro_right_state, tetro_game_state>(state)) return;
 
   if (timer.did_tick() == false) return;
@@ -416,7 +418,7 @@ void tetro_menu_loop(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
-void tetro_score_loop(StateMachine& state, Timer& timer) {
+void tetro_score_loop(StateMachine& state) {
   PlayStation.update();
   const auto pressed = PlayStation.get_pressed();
   if (pressed & PlayStation.Select) {
@@ -436,7 +438,7 @@ void tetro_score_loop(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
-void tetro_fail_loop(StateMachine& state, Timer& timer) {
+void tetro_fail_loop(StateMachine& state) {
   // Exit animation early
   PlayStation.update();
   const auto pressed = PlayStation.get_pressed();
@@ -455,7 +457,7 @@ void tetro_fail_loop(StateMachine& state, Timer& timer) {
   }
 }
 
-void tetro_fail_setup(StateMachine& state, Timer& timer) {
+void tetro_fail_setup(StateMachine& state) {
   timer.set_period(150);
 }
 
@@ -468,7 +470,7 @@ void next_shape() {
   tetro.set_rot(0);
 }
 
-void tetro_game_loop(StateMachine& state, Timer& timer) {
+void tetro_game_loop(StateMachine& state) {
   // Clear shape before moving with controller
   tetro.draw(false);
 
@@ -523,7 +525,7 @@ void tetro_game_loop(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
-void tetro_game_setup(StateMachine& state, Timer& timer) {
+void tetro_game_setup(StateMachine& state) {
   Frame.clear();
   field.clear();
   period = INIT_PERIOD;

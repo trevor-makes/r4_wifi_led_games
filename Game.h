@@ -26,14 +26,13 @@ public:
 class StateMachine;
 
 struct State {
-  using Fn = void(StateMachine&, Timer&);
+  using Fn = void(StateMachine&);
   Fn *setup;
   Fn *loop;
 };
 
 class StateMachine {
 private:
-  Timer timer_;
   std::vector<State> states_;
   bool needs_setup_ = true;
 
@@ -60,10 +59,10 @@ public:
       auto& state = states_.back();
       // NOTE setup will never be called if loop is never called
       if (needs_setup_) {
-        if (state.setup) state.setup(*this, timer_);
+        if (state.setup) state.setup(*this);
         needs_setup_ = false;
       }
-      if (state.loop) state.loop(*this, timer_);
+      if (state.loop) state.loop(*this);
     }
   }
 };

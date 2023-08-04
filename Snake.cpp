@@ -174,6 +174,7 @@ constexpr uint8_t PERIOD_LIMIT = 60; // shortest frame period
 constexpr uint8_t PERIOD_START = 150; // starting frame period
 
 static unsigned long frame_period = PERIOD_START;
+static Timer timer;
 
 void reset_frame_period(Timer& timer) {
   frame_period = PERIOD_START;
@@ -191,44 +192,45 @@ void shrink_frame_period(Timer& timer) {
   timer.set_period(frame_period);
 }
 
-void snake_menu_setup(StateMachine&, Timer&);
-void snake_menu_loop(StateMachine&, Timer&);
+void snake_menu_setup(StateMachine&);
+void snake_menu_loop(StateMachine&);
 
 const State snake_menu_state = {
   .setup = snake_menu_setup,
   .loop = snake_menu_loop,
 };
 
-void snake_game_setup(StateMachine&, Timer&);
-void snake_game_loop(StateMachine&, Timer&);
+void snake_game_setup(StateMachine&);
+void snake_game_loop(StateMachine&);
 
 const State snake_game_state = {
   .setup = snake_game_setup,
   .loop = snake_game_loop,
 };
 
-void snake_death_setup(StateMachine&, Timer&);
-void snake_death_loop(StateMachine&, Timer&);
+void snake_death_setup(StateMachine&);
+void snake_death_loop(StateMachine&);
 
 const State snake_death_state = {
   .setup = snake_death_setup,
   .loop = snake_death_loop,
 };
 
-void snake_score_loop(StateMachine&, Timer&);
+void snake_score_loop(StateMachine&);
 
 const State snake_score_state = {
   .setup = nullptr,
   .loop = snake_score_loop,
 };
 
-void snake_menu_setup(StateMachine&, Timer& timer) {
+void snake_menu_setup(StateMachine&) {
   Frame.clear();
   Frame.render();
   timer.set_period(150);
+  timer.reset();
 }
 
-void snake_menu_loop(StateMachine& state, Timer& timer) {
+void snake_menu_loop(StateMachine& state) {
   if (menu_selection<snake_left_state, snake_right_state, snake_game_state>(state)) return;
 
   if (timer.did_tick() == false) return;
@@ -262,7 +264,7 @@ void snake_menu_loop(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
-void snake_death_loop(StateMachine& state, Timer& timer) {
+void snake_death_loop(StateMachine& state) {
   // Exit animation early
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
@@ -284,11 +286,11 @@ void snake_death_loop(StateMachine& state, Timer& timer) {
   }
 }
 
-void snake_death_setup(StateMachine& state, Timer& timer) {
+void snake_death_setup(StateMachine& state) {
   Frame.fill(true); // invert screen
 }
 
-void snake_game_loop(StateMachine& state, Timer& timer) {
+void snake_game_loop(StateMachine& state) {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
 
@@ -333,7 +335,7 @@ void snake_game_loop(StateMachine& state, Timer& timer) {
   Frame.render();
 }
 
-void snake_game_setup(StateMachine& state, Timer& timer) {
+void snake_game_setup(StateMachine& state) {
   Frame.clear();
 
   randomSeed(micros());
@@ -347,7 +349,7 @@ void snake_game_setup(StateMachine& state, Timer& timer) {
   reset_frame_period(timer);
 }
 
-void snake_score_loop(StateMachine& state, Timer& timer) {
+void snake_score_loop(StateMachine& state) {
   PlayStation.update();
   uint16_t pressed = PlayStation.get_pressed();
   if (pressed & PlayStation.Select) {
