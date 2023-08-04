@@ -308,14 +308,8 @@ void snake_game_loop(StateMachine& state) {
   // Wait for next move
   if (timer.did_tick() == false) return;
 
-  // Move forward; game over if head hits wall
-  if (!head.update()) {
-    state.next(snake_death_state);
-    return;
-  }
-
-  // Game over if head eats tail
-  if (tail.overlaps(head)) {
+  // Move forward; game over if head hits wall or tail
+  if (!head.update() || tail.overlaps(head)) {
     state.next(snake_death_state);
     return;
   }
